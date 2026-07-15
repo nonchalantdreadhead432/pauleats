@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Orders dashboard — FireOrder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">F</span> FIREORDER</div>
+    <div style="display:flex; gap:10px;">
+      <a class="admin-link" href="index.html">← Back to order form</a>
+      <button class="admin-link" id="logout-btn" style="cursor:pointer;">Log out</button>
+    </div>
+  </header>
+
+  <main class="admin-body">
+    <div class="admin-header">
+      <h1>Orders dashboard</h1>
+      <p>Everything sent in through the order form, stored right in this browser.</p>
+    </div>
+
+    <div class="stat-row" id="stat-row"></div>
+
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="Search name, phone, address, order ID…">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="new">New</button>
+      <button class="filter-btn" data-filter="confirmed">Confirmed</button>
+      <button class="filter-btn" data-filter="delivered">Delivered</button>
+    </div>
+
+    <table class="order-table">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Payment</th>
+          <th>Status</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody id="order-rows"></tbody>
+    </table>
+  </main>
+
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
