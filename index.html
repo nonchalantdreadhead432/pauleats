@@ -15,6 +15,9 @@
     <div class="brand"><span class="brand-mark">F</span> FIREORDER</div>
     <div style="display:flex; align-items:center; gap:14px;">
       <span class="status-pill">Now taking orders</span>
+      <a class="admin-link" href="track.html">Track Order</a>
+      <a class="admin-link" href="deals.html">Deals</a>
+      <a class="admin-link" href="menu.html">Menu</a>
       <a class="admin-link" href="admin.html">Admin →</a>
     </div>
   </header>
@@ -22,7 +25,10 @@
   <section class="hero">
     <h1>SNAP IT.<br>SEND IT.<br><span>WE DELIVER.</span></h1>
     <p>Screenshot your order from anywhere, drop your address, and pick how you want to pay. No accounts. No card processor. Just food.</p>
+    <div class="restaurant-strip" id="restaurant-strip"></div>
   </section>
+
+  <div class="home-section" id="store-status-banner" style="display:none;"></div>
 
   <main class="order-wrap">
     <form id="order-form" novalidate>
@@ -33,7 +39,7 @@
           <span class="step-num">1</span>
           <h2>Your order screenshot</h2>
         </div>
-        <p class="step-sub">A picture of your cart, menu, or notes. Anywhere works.</p>
+        <p class="step-sub">A picture of your cart from directly on the site such as buffalowildwings.com.</p>
 
         <div class="dropzone" id="dropzone">
           <strong>Add your screenshot</strong>
@@ -105,14 +111,54 @@
       <h3>Order sent — now send payment</h3>
       <p style="color:var(--text-muted); margin:0;">Send your total to:</p>
       <div class="confirm-handle" id="confirm-handle">$FireOrderNJ</div>
-      <p class="confirm-id">Order <span id="confirm-id"></span> · we'll text you to confirm</p>
+      <p class="confirm-id">Order <span id="confirm-id"></span> · <strong>put this order number in the payment note</strong></p>
+
+      <div style="margin-top:20px; text-align:left;">
+        <label class="field" for="payment-screenshot-input" style="text-align:center;">Sent it? Upload a screenshot of the payment (optional but speeds up confirmation)</label>
+        <div class="dropzone" id="payment-dropzone">
+          <strong>Add payment screenshot</strong>
+          <small>Tap to upload</small>
+          <input type="file" id="payment-screenshot-input" accept="image/*" hidden>
+        </div>
+        <img id="payment-preview" class="preview-img" alt="Payment screenshot preview">
+        <button type="button" class="send-btn" id="payment-screenshot-btn" style="display:none;">Attach payment screenshot</button>
+        <p class="confirm-id" id="payment-screenshot-status"></p>
+      </div>
+
+      <p class="confirm-id" style="margin-top:16px;"><a href="#" id="confirm-track-link" style="color:var(--flame);">Track this order anytime →</a></p>
     </div>
   </main>
+
+  <section class="home-section">
+    <h2>Recent orders 🔥</h2>
+    <div class="recent-orders-grid" id="recent-orders-grid"></div>
+  </section>
 
   <p class="foot">FireOrder · Screenshot orders, delivered.</p>
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <script src="store-status.js"></script>
   <script src="app.js"></script>
+  <script>
+    // Today's 3 featured restaurants — just names, publicly readable
+    (async function loadRestaurants() {
+      const stripEl = document.getElementById("restaurant-strip");
+      const { data, error } = await supabaseClient
+        .from("featured_restaurants")
+        .select("*")
+        .order("slot", { ascending: true });
+
+      if (error || !data) { stripEl.innerHTML = ""; return; }
+
+      stripEl.innerHTML = data.map(r =>
+        r.name
+          ? `<span class="restaurant-chip">${r.name.replace(/</g, "&lt;")}</span>`
+          : `<span class="restaurant-chip empty">Not set yet</span>`
+      ).join("");
+    })();
+  </script>
+  <script src="recent-orders.js"></script>
+  <script src="chat.js"></script>
 </body>
 </html>

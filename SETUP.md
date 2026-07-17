@@ -56,7 +56,82 @@ Pick one:
 2. Repo → **Settings → Pages** → set source to your main branch.
 3. Free, slightly more setup than the other two.
 
-## 8. Ongoing costs to watch
+## 9. New features: chat, menu, today's restaurants
+The schema.sql file now also creates `featured_restaurants`, `menu_items`, and `chat_messages` tables. If you already ran schema.sql once before, just re-run the whole file again — every statement uses `if not exists` / `on conflict` / safe patterns so it won't break your existing orders data, it'll just add the new tables and policies.
+
+**Today's Restaurants tab (admin):** just 3 name fields — whatever you type shows up as chips on the homepage instantly.
+
+**Menu tab (admin):** add/hide/delete shared menu items (name, category, price, description). This is one flat list, not tied to any specific restaurant — customers browse it on `menu.html`.
+
+**Chat:** every visitor gets a floating chat bubble (bottom-right) backed by `faq.json` — it answers common questions instantly, and every message (customer + bot) is also saved so you can see and reply to any conversation live from the admin Chat tab. Edit `faq.json` to change what the bot knows.
+
+**Note on chat privacy:** conversations are identified by a random ID stored in the customer's browser, not a real login — practically private, but not true per-user security. Don't rely on it for anything sensitive.
+
+## 11. Homepage: Recent Orders (now pulled from Telegram)
+
+The "Recent orders 🔥" section on the homepage pulls its photos and captions directly from your **public Telegram channel**, via a Supabase Edge Function — not from customer-submitted screenshots anymore. This needs the same Edge Function setup either way, so follow **Option A** below regardless.
+
+(The `public_recent_orders()` database function from `schema.sql` is still there and harmless to leave — it's just not used by the homepage anymore. If you ever want to switch back to showing real customer order screenshots instead of Telegram posts, it's ready to go — just ask.)
+
+This is a step up in complexity from the rest of the site — it needs a real server-side piece (a Supabase **Edge Function**), because browsers can't fetch Telegram's pages directly (CORS blocks it).
+
+**You'll need the Supabase CLI installed** (this part can't be done through drag-and-drop, unlike the rest of the site):
+```bash
+npm install -g supabase
+supabase login
+supabase link --project-ref your-project-ref   # find this in your Supabase project URL
+```
+
+**Option A: Telegram (what powers Recent Orders)**
+
+Works with any *public* Telegram channel — no bot, no login, no API key.
+
+1. Deploy the function:
+   ```bash
+   supabase functions deploy telegram-feed --no-verify-jwt
+   ```
+2. Set your channel's username as a secret (the part after `t.me/` in your channel's link):
+   ```bash
+   supabase secrets set TELEGRAM_CHANNEL=your_channel_username
+   ```
+3. Redeploy your site files to Netlify — no `config.js` change needed for this one anymore, the homepage calls `telegram-feed` directly.
+
+**Heads up:** this works by reading Telegram's public web preview page, since Telegram's official Bot API doesn't let a bot fetch a channel's post history. It's a common technique but unofficial — if Telegram changes that page's layout, photos might stop showing up until the function's parsing logic is updated. Nothing breaks elsewhere on your site if that happens — the section just shows a friendly "couldn't load" message.
+
+Until you deploy this function, the Recent Orders section will show a message pointing back to this setup step — everything else on the site works fine either way.
+
+---
+
+**Option B: Instagram (available if you want a *separate* gallery later)**
+
+The `instagram-feed` function from before is still in the project and untouched, in case you want to add a second, Instagram-specific gallery section somewhere on the site down the line. It's not wired into the homepage right now. Just ask if you want it added back in.
+
+## 13. Order tracking
+Customers can look up their own order at `track.html` using their order number + the phone number they gave when ordering (the phone acts as a lightweight check so people can't just guess order numbers to see others' status). This just needs the updated `schema.sql` re-run — it adds a `tracking_url` column and a `public_track_order()` function that only exposes status/tracking link/date, never name or address.
+
+**To add a tracking link to an order:** open it in the admin **Orders** tab, paste the link into the new "Tracking link" field, and hit save. It shows up for the customer immediately — no separate step needed to "publish" it.
+
+## 15. Store open/closed toggle
+New admin tab: **Store Status**. Flip the checkbox off and add a reason ("Stepped out for lunch, back at 2pm!") and hit save — the homepage instantly shows that message instead of letting people submit new orders. Flip it back on when you're back. Needs the updated `schema.sql` re-run (adds a `store_status` table).
+
+## 16. Multiple payment handles + payment screenshots
+**Multiple accounts per method:** open `orders.json` — any payment method can now be either a single string or a list:
+```json
+"cashapp": ["$YourCashApp1", "$YourCashApp2"],
+"applepay": "(551) 555-0134",
+"paypal": "paypal.me/yourhandle",
+"zelle": "you@yourzelle.com"
+```
+**Fill in your real handles here** — the placeholders won't mean anything to customers. If a method is a list, one is picked at random per order, and *which one* gets saved with that order so you can match it up later (visible in the admin Orders tab when you open an order).
+
+**Payment note:** the confirmation screen now tells customers to put their order number in the payment note/memo — this is the only way to match a payment to an order manually, since Cash App/Apple Pay/Zelle/PayPal don't offer a way for a website to detect an incoming payment automatically without a business banking API integration (a much bigger project). This screenshot approach is the practical middle ground.
+
+**Payment screenshot:** after placing an order, customers can optionally upload a screenshot of the payment itself. It attaches to that exact order (verified by order number + phone, so no one else can attach to someone else's order) and shows up right in the order detail in your Orders tab, next to their order screenshot — so you can visually confirm payment before marking an order Confirmed. Needs the updated `schema.sql` re-run (adds `payment_handle` and `payment_screenshot_url` columns, plus a safe attach function).
+
+## 17. Deals (price checker)
+New admin tab: **Deals**. Add a title, price, and optional description (e.g. "Zaxby's Large Meal + Dessert — $10, includes a drink"). Customers browse these at `deals.html` (linked from the homepage) so they know what to screenshot and expect to pay before ordering. This is a straightforward priced list, not a build-your-own combo calculator — if you want customers to pick items and see a live total instead, that's a bigger feature, just ask. Needs the updated `schema.sql` re-run (adds a `deals` table).
+
+## 18. Ongoing costs to watch (updated)
 Everything above is free at small scale. You'd only start paying if:
 - Your Supabase project exceeds the free tier's database/storage/bandwidth limits (Supabase will email you before this happens).
 - You want a custom domain (e.g. `fireorder.com`) — the domain itself typically costs $10–15/year; the hosting stays free.

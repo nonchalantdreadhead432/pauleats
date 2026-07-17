@@ -10,13 +10,32 @@ let currentSearch = "";
 let allOrders = [];
 
 // ---- Auth guard ----
+function timeoutAfter(ms) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error("Timed out contacting Supabase")), ms));
+}
+
 (async function checkAuth() {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (!session) {
-    window.location.href = "login.html";
-    return;
+  try {
+    const { data: { session }, error } = await Promise.race([
+      supabaseClient.auth.getSession(),
+      timeoutAfter(6000)
+    ]);
+    if (error) throw error;
+
+    if (!session) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    document.body.classList.remove("auth-pending");
+    window.fireorderAdminAuthed = true;
+    window.dispatchEvent(new Event("fireorder-admin-authed"));
+    loadOrders();
+  } catch (err) {
+    console.error("Auth check failed:", err);
+    document.getElementById("auth-loading").innerHTML =
+      `Couldn't verify your login: ${err.message || "unknown error"}<br><br><a href="login.html" style="color:var(--flame)">Go to login</a>`;
   }
-  loadOrders();
 })();
 
 supabaseClient.auth.onAuthStateChange((event) => {
@@ -142,9 +161,15 @@ function openModal(id) {
     ${order.screenshot_url ? `<img class="modal-img" src="${order.screenshot_url}" alt="Order screenshot">` : ""}
     <div class="detail-row"><span class="k">Phone</span><span class="v">${escapeHtml(order.phone)}</span></div>
     <div class="detail-row"><span class="k">Address</span><span class="v">${escapeHtml(order.address)}</span></div>
-    <div class="detail-row"><span class="k">Payment</span><span class="v">${PAYMENT_LABELS[order.payment_method] || order.payment_method}</span></div>
+    <div class="detail-row"><span class="k">Payment</span><span class="v">${PAYMENT_LABELS[order.payment_method] || order.payment_method}${order.payment_handle ? ` → ${escapeHtml(order.payment_handle)}` : ""}</span></div>
     <div class="detail-row"><span class="k">Status</span><span class="v"><span class="badge ${order.status}">${order.status}</span></span></div>
     ${order.notes ? `<div class="detail-row"><span class="k">Notes</span><span class="v">${escapeHtml(order.notes)}</span></div>` : ""}
+    ${order.payment_screenshot_url ? `<div style="margin-top:10px;"><div class="k" style="font-size:12.5px; color:var(--text-muted); margin-bottom:6px;">Payment screenshot</div><img class="modal-img" src="${order.payment_screenshot_url}" alt="Payment screenshot"></div>` : ""}
+
+    <label class="field" for="modal-tracking-url">Tracking link (shown to customer automatically)</label>
+    <input type="text" id="modal-tracking-url" placeholder="https://..." value="${escapeHtml(order.tracking_url || "")}">
+    <button type="button" class="icon-btn" id="modal-tracking-save" style="margin-top:8px; width:100%;">Save tracking link</button>
+
     <div class="action-row">
       ${order.status !== "new" ? `<button data-status="new">Mark New</button>` : ""}
       ${order.status !== "confirmed" ? `<button data-status="confirmed" class="primary">Mark Confirmed</button>` : ""}
@@ -153,6 +178,8 @@ function openModal(id) {
     </div>
   `;
 
+  modal.querySelector("#modal-tracking-save").addEventListener("click", () => saveTrackingUrl(order.id));
+
   modal.querySelector("#modal-close").addEventListener("click", closeModal);
   modal.querySelectorAll("[data-status]").forEach(btn => {
     btn.addEventListener("click", () => updateStatus(order.id, btn.dataset.status));
@@ -160,6 +187,26 @@ function openModal(id) {
   modal.querySelector('[data-action="delete"]').addEventListener("click", () => deleteOrder(order.id));
 
   backdrop.style.display = "flex";
+}
+
+async function saveTrackingUrl(id) {
+  const input = document.getElementById("modal-tracking-url");
+  const btn = document.getElementById("modal-tracking-save");
+  const url = input.value.trim();
+
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+
+  const { error } = await supabaseClient.from("orders").update({ tracking_url: url || null }).eq("id", id);
+
+  if (error) {
+    console.error(error);
+    btn.textContent = "Couldn't save — try again";
+    btn.disabled = false;
+  } else {
+    btn.textContent = "Saved ✓";
+    setTimeout(() => { btn.textContent = "Save tracking link"; btn.disabled = false; }, 1500);
+  }
 }
 
 function closeModal() { backdrop.style.display = "none"; }
